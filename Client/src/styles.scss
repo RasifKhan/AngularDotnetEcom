@@ -33,6 +33,16 @@ button.match-input-height{
 }
 
 
+.mdc-notched-outline__notch{
+   border-right-style: none !important;
+}
+
+
+
+
+
+
+
 // bellow code is working to show product list slightly right
 // .container {
 //     @apply mx-auto px-4 max-w-screen-2xl; // Center horizontally and add padding
