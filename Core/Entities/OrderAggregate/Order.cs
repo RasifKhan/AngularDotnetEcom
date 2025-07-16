@@ -19,6 +19,7 @@ public class Order : BaseEntity
 
     public OrderStatus Status { get; set; } = OrderStatus.pending;
 
+
     public required string PaymentIntentId { get; set; }
 
     public decimal GetTotal()

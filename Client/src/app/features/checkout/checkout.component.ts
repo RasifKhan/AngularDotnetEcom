@@ -18,6 +18,8 @@ import { CurrencyPipe, JsonPipe } from '@angular/common';
 import { state } from '@angular/animations';
 import { BooleanInput } from '@angular/cdk/coercion';
 import {MatProgressSpinnerModule} from '@angular/material/progress-spinner';
+import { OrderToCreate, ShippingAddress } from '../../shared/models/order';
+import { OrderService } from '../../core/services/order.service';
 
 @Component({
   selector: 'app-checkout',
@@ -41,6 +43,7 @@ export class CheckoutComponent implements OnInit ,OnDestroy{
   private stripeService=inject(StripeService);
   private snackbar =inject (SnackbarService);
   private accountService=inject (AccountService);
+  private orderService=inject (OrderService);       //Add this
   private router=inject(Router);
   cartService=inject(CartService);
   addressElement?: StripeAddressElement;
@@ -52,9 +55,7 @@ export class CheckoutComponent implements OnInit ,OnDestroy{
 
   confirmationToken?: ConfirmationToken;
   loading=false;
-  // constructor(){
-  //   this.handleAddressChange=this.handleAddressChange.bind(this);
-  // }
+  
 
   async ngOnInit() {
     try{
@@ -119,7 +120,7 @@ async getConfirmationToken(){
  async onStepChange(event: StepperSelectionEvent){
     if(event.selectedIndex===1){
       if(this.saveAddress){
-        const address=await this.getAddressFromStripeAddress();
+        const address=await this.getAddressFromStripeAddress() as Address;     //add as Address
         address && firstValueFrom(this.accountService.updateAddress(address));
       }
     }
@@ -139,13 +140,29 @@ async getConfirmationToken(){
     try{
         if(this.confirmationToken){
           const result=await this.stripeService.confirmPayment(this.confirmationToken);
-          if(result.error){
+
+           if(result.paymentIntent?.status==='succeeded'){       //add this 
+            const order=await this.createOrderModel();
+            const orderResult=await firstValueFrom(this.orderService.createOrder(order));
+            if(orderResult){
+                  this.orderService.orderComplete=true;      
+                  this.cartService.deleteCart();
+                  this.cartService.selectedDelivery.set(null);
+                  this.router.navigateByUrl('/checkout/success');
+            } else{
+              throw new Error('Order creation failed');
+            }
+           } else if(result.error){
             throw new Error(result.error.message);
-          } else{
-              this.cartService.deleteCart();
-              this.cartService.selectedDelivery.set(null);
-              this.router.navigateByUrl('/checkout/success');
-          }
+           }else{
+            throw new Error('Something went wrong');
+           }
+         
+          // if(result.error){
+          //   throw new Error(result.error.message);
+          // } else{
+          // }
+          
         }
     } catch (error: any){
         this.snackbar.error(error.message || 'Something went wrong');
@@ -156,12 +173,36 @@ async getConfirmationToken(){
   }
 
 
-  private async getAddressFromStripeAddress(): Promise<Address | null> {
+private async createOrderModel(): Promise<OrderToCreate>{         //new method
+  const cart=this.cartService.cart();
+  const shippingAddress=await this.getAddressFromStripeAddress() as ShippingAddress;
+  const card =this.confirmationToken?.payment_method_preview.card;                      //add this 
+
+  if(!cart?.id || !cart.deliveryMethodId || !card ||!shippingAddress ){       //add this 
+    throw new Error('Problem creating order');
+  }
+
+  return{              //add this 
+    cartId: cart.id,
+    paymentSummary:{
+      last4:+card.last4,    //here + for casting 
+      brand: card.brand,
+      expMonth: card.exp_month,
+      expYear: card.exp_year
+    },
+    deliveryMethodId:  cart.deliveryMethodId,
+    shippingAddress
+  }
+}
+
+
+  private async getAddressFromStripeAddress(): Promise<Address | ShippingAddress|null> {       //here add  ShippingAddress
     const result=await this.addressElement?.getValue();
     const address=result?.value.address;
 
     if(address){
         return{
+          name : result.value.name,     // add this 
           line1: address.line1,
           line2: address.line2 || undefined,
           city: address.city,
