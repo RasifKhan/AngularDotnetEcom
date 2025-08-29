@@ -3,19 +3,20 @@ import { inject, Injectable } from '@angular/core';
 import { Pagination } from '../../shared/models/pagination';
 import { Product } from '../../shared/models/product';
 import { ShopParams } from '../../shared/models/shopParams';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ShopService {
-   baseUrl= 'https://localhost:5001/api/'
+ //  baseUrl= 'https://localhost:5001/api/'
+   baseUrl=environment.apiUrl;
    private http=inject(HttpClient)
- // constructor() { }        //we dont need contructor here 
+
 
  types: string[]=[];
  brands: string[]=[];
 
- //getProducts(brands?: string[],types?:string[],sort?: string){
 
  getProducts(shopParams: ShopParams){
       let params=new HttpParams();
